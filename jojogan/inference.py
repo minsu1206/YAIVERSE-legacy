@@ -5,7 +5,7 @@ Modified version
 
 
 """
-
+import time
 import torch
 torch.backends.cudnn.benchmark = True
 from torchvision import transforms, utils
@@ -23,7 +23,7 @@ from e4e.models.psp import pSp
 from e4e_projection import projection as e4e_projection
 
 import argparse
-import time
+
 
 def time_stamp(func_name, start, template1='TIME', return_val=False):
     stamp = round(time.time() - start, 5)
@@ -47,11 +47,11 @@ def inference(args):
     # -------------------------------------------------------------------- #
     print("-------------------- Filter --------------------")
     # (0) check : style name - invalid or not
-    if args.style not in ['disney', 'jojo', 'arcane']:
+    if args.style not in ['disney', 'jojo', 'arcane', 'art']:
         raise NotImplementedError("NOT SUPPROTED STYLE IS GIVEN")
 
     # (1) check : img path - invalid or not
-    img_path = os.path.join(args.input_dir, args.col, + '.png')
+    img_path = os.path.join(args.input_dir, args.col, 'image.png')
     if not os.path.exists(img_path):
         raise ValueError("NO INPUT IMG : CHECK YOUR IMG PATH")
 
@@ -69,8 +69,8 @@ def inference(args):
     inversion_model_path = f'{args.inversion_dir}/e4e_ffhq_encode.pt'
     ckpt = torch.load(inversion_model_path, map_location='cpu')
     opts = ckpt['opts']
-    opts['checkpoint_path'] = model_path
-    opts= Namespace(**opts)
+    opts['checkpoint_path'] = inversion_model_path
+    opts= argparse.Namespace(**opts)
     inversion_net = pSp(opts, device).eval().to(device)
     if args.time_stamp:
         time_stamp(func_name='Load Inversion Net', start=start_load_inv)
@@ -122,6 +122,7 @@ def inference(args):
 
     # (3) save result
     transform = transforms.ToPILImage()
+    my_toonify = utils.make_grid(my_toonify, normalize=True, range=(-1, 1)).squeeze(0)
     my_toonify = transform(my_toonify)
     output_path = os.path.join(args.output_dir, args.col + f'_{args.style}_{args.seed}.png')
     my_toonify.save(output_path)

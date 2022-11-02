@@ -6,6 +6,10 @@ Modified version
 """
 
 import torch
+import time
+
+start_time = time.time()
+
 torch.backends.cudnn.benchmark = True
 from torchvision import transforms, utils
 from PIL import Image
@@ -22,7 +26,7 @@ from e4e.models.psp import pSp
 from e4e_projection import projection as e4e_projection
 
 import argparse
-import time
+print("TIME : IMPORT : ", time.time() - start_time)
 
 
 def time_stamp(func_name, start, template1='TIME', return_val=False):
@@ -41,6 +45,18 @@ def time_stamp_val(func_name, elapse, template1='TIME', return_val=False):
 
 def unit_test(args):
 
+    if args.unit_test == 0:
+        test_name = 'Load Inversion Net'
+    elif args.unit_test == 1:
+        test_name = 'Load StyleGAN'
+    elif args.unit_test == 2:
+        test_name = 'Face Align'
+    elif args.unit_test == 3:
+        test_name = 'Forward : inversion'
+    elif args.unit_test == 4:
+        test_name = 'Forward : StyleGAN'
+
+    print(f"UNIT TEST for {test_name}")
     # -------------------------------------------------------------------- #
     #                                   Filter
     # -------------------------------------------------------------------- #
@@ -71,8 +87,10 @@ def unit_test(args):
         total_elapse = 0
         if args.unit_test == 0:
             test_count = 0
+            div = args.unit_num
         else:
             test_count = args.unit_num - 1
+            div = 1
 
         while test_count < args.unit_num:
             start_load_inv = time.time()
@@ -89,7 +107,7 @@ def unit_test(args):
             del ckpt
             total_elapse += elapse
             test_count += 1
-
+        total_elapse /= div
         time_stamp_val(func_name='Load Inversion Net', elapse=total_elapse)
 
     # unit test 1 : load generator (StyleGAN)
@@ -97,8 +115,10 @@ def unit_test(args):
         total_elapse = 0
         if args.unit_test == 1:
             test_count = 0
+            div = args.unit_num
         else:
             test_count = args.unit_num - 1
+            div = 1
         
         while test_count < args.unit_num:
             start_load_gan = time.time()
@@ -113,7 +133,7 @@ def unit_test(args):
             del ckpt
             total_elapse += elapse
             test_count += 1
-        
+        total_elapse /= div
         time_stamp_val(func_name='Load StyleGAN', elapse=total_elapse)
 
     # -------------------------------------------------------------------- #
@@ -127,8 +147,10 @@ def unit_test(args):
         total_elapse = 0
         if args.unit_test == 2:
             test_count = 0
+            div = args.unit_num
         else:
             test_count = args.unit_num - 1
+            div = 1
         while test_count < args.unit_num:
             start_align_face = time.time()
 
@@ -137,7 +159,7 @@ def unit_test(args):
             
             total_elapse += elapse
             test_count += 1
-        
+        total_elapse /= div
         time_stamp_val(func_name='dlib face detector', elapse=total_elapse)
 
     # unit test 3: e4e inversion
@@ -145,8 +167,10 @@ def unit_test(args):
         total_elapse = 0
         if args.unit_test == 3:
             test_count = 0
+            div = args.unit_num
         else:
             test_count = args.unit_num - 1
+            div = 1
 
         while test_count < args.unit_num:
             start_inversion = time.time()
@@ -172,17 +196,18 @@ def unit_test(args):
             start_toonify = time.time()
 
             my_toonify = generator(my_w, input_is_latent=True)
-            elapse = time.time() - start_toonfiy
+            elapse = time.time() - start_toonify
             total_elapse += elapse
             test_count += 1
-        
+
         time_stamp_val(func_name='E4E Inversion', elapse=total_elapse)
 
-    # (3) save result
-    transform = transforms.ToPILImage()
-    my_toonify = transform(my_toonify)
-    output_path = os.path.join(args.output_dir, args.col + f'_{args.style}_{args.seed}.png')
-    my_toonify.save(output_path)
+        # save result
+        transform = transforms.ToPILImage()
+        my_toonify = utils.make_grid(my_toonify, normalize=True, range=(-1, 1)).squeeze(0)
+        my_toonify = transform(my_toonify)
+        output_path = os.path.join(args.output_dir, args.col + f'_{args.style}_{args.seed}.png')
+        my_toonify.save(output_path)
 
     print("-------------------- FININSH --------------------")
 
