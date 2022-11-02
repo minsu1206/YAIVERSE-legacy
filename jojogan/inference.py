@@ -18,13 +18,26 @@ from torch import nn, autograd, optim
 from torch.nn import functional as F
 from tqdm import tqdm
 from model import *
+from util import *
+from e4e.models.psp import pSp
 from e4e_projection import projection as e4e_projection
 
 import argparse
 import time
 
-def time_stamp(func_name, start, template1='TIME : '):
-    print(f'{template1} : {func_name} : {time.time() - start} s)
+def time_stamp(func_name, start, template1='TIME', return_val=False):
+    stamp = round(time.time() - start, 5)
+    print(f'{template1} : {func_name} : {stamp} s')
+    if return_val:
+        return stamp
+
+
+def time_stamp_val(func_name, elapse, template1='TIME', return_val=False):
+    elapse = round(elapse, 5)
+    print(f'{template1} : {func_name} : {elapse} s')
+    if return_val:
+        return elapse
+
 
 
 def inference(args):
@@ -128,7 +141,7 @@ if __name__ == "__main__":
     parser.add_argument('--stylegan_dir', type=str, default='models')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--time_stamp', action="store_true")
-    args = parser.ArgumentParse()
+    args = parser.parse_args()
 
     # Inference
     os.makedirs(args.output_dir, exist_ok=True)
