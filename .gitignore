@@ -1,1 +1,6 @@
 jojogan/models/*
+backend/db.sqlite3
+backend/data
+backend/yaiverse/inference/models
+*.pyc
+backend/yaiverse/inference/importFiles/e4e_ffhq_encode.pt
