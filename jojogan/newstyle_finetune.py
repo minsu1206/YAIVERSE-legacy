@@ -1,7 +1,7 @@
 """
 Modified version 
 - from JoJoGAN / stylize.ipynb
-- for AI server  inference
+- for Pretraining and Finetuning
 
 
 """
