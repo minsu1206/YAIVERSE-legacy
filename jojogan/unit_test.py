@@ -79,20 +79,17 @@ def unit_test(args):
 
     device = "cuda:0"
     latent_dim = 512
-    test_count = 0
     total_elapse = 0
-
+    
     # unit test 0 : load inversion (e4e)
     if args.unit_test >= 0:
         total_elapse = 0
         if args.unit_test == 0:
-            test_count = 0
-            div = args.unit_num
+            test_iter = args.unit_num 
         else:
-            test_count = args.unit_num - 1
-            div = 1
+            test_iter = 1
 
-        while test_count < args.unit_num:
+        for _ in tqdm(range(test_iter)):
             start_load_inv = time.time()
             
             inversion_model_path = f'{args.inversion_dir}/e4e_ffhq_encode.pt'
@@ -103,24 +100,21 @@ def unit_test(args):
             inversion_net = pSp(opts, device).eval().to(device)
             
             elapse = time.time() - start_load_inv
-            
+
             del ckpt
             total_elapse += elapse
-            test_count += 1
-        total_elapse /= div
+        total_elapse /= test_iter
         time_stamp_val(func_name='Load Inversion Net', elapse=total_elapse)
 
     # unit test 1 : load generator (StyleGAN)
     if args.unit_test >= 1:
         total_elapse = 0
         if args.unit_test == 1:
-            test_count = 0
-            div = args.unit_num
+            test_iter = args.unit_num 
         else:
-            test_count = args.unit_num - 1
-            div = 1
+            test_iter = 1
         
-        while test_count < args.unit_num:
+        for _ in tqdm(range(test_iter)):
             start_load_gan = time.time()
 
             stylegan_model_path = f'{args.stylegan_dir}/{args.style}.pt'
@@ -129,12 +123,32 @@ def unit_test(args):
             generator.load_state_dict(ckpt["g"], strict=False)
 
             elapse = time.time() - start_load_gan
-            
+
             del ckpt
             total_elapse += elapse
-            test_count += 1
-        total_elapse /= div
+        total_elapse /= test_iter
         time_stamp_val(func_name='Load StyleGAN', elapse=total_elapse)
+
+    # unit test 2 : load face detector (dlib)
+
+    if args.unit_test >= 2:
+        total_elapse = 0
+        if args.unit_test == 2:
+            test_iter = args.unit_num
+        else:
+            test_iter = 1
+
+        for _ in tqdm(range(test_iter)):
+            start_load_face_detector = time.time()
+
+            predictor = dlib.shape_predictor("models/shape_predictor_68_face_landmarks.dat")
+            detector = dlib.get_frontal_face_detector()
+
+            elapse = time.time() - start_load_face_detector
+
+            total_elapse += elapse
+        total_elapse /= test_iter
+        time_stamp_val(func_name='Load FaceDetector', elapse=total_elapse)
 
     # -------------------------------------------------------------------- #
     #                                 ! Toonify !
@@ -142,37 +156,49 @@ def unit_test(args):
     print("-------------------- ! Toonify ! --------------------")
     
 
-    # unit test 2 : dlib face detector
-    if args.unit_test >=2 :
+    # unit test 3 : face detector
+    if args.unit_test >=3:
         total_elapse = 0
-        if args.unit_test == 2:
-            test_count = 0
-            div = args.unit_num
+        total_elapse_det = 0
+        total_elapse_lmk = 0
+        total_elapse_pp = 0
+        if args.unit_test == 3:
+            test_iter = args.unit_num 
         else:
-            test_count = args.unit_num - 1
-            div = 1
-        while test_count < args.unit_num:
+            test_iter = 1
+
+        for _ in tqdm(range(test_iter)):
             start_align_face = time.time()
 
-            aligned_face = align_face(img_path)
+            aligned_face, elapse_det, elapse_lmk, elapse_pp = custom_align_face(img_path, predictor, detector)
+
             elapse = time.time() - start_align_face
-            
             total_elapse += elapse
-            test_count += 1
-        total_elapse /= div
-        time_stamp_val(func_name='dlib face detector', elapse=total_elapse)
+            total_elapse_det += elapse_det
+            total_elapse_lmk += elapse_lmk
+            total_elapse_pp += elapse_pp
 
-    # unit test 3: e4e inversion
-    if args.unit_test >= 3:
-        total_elapse = 0
+        total_elapse /= test_iter
+        total_elapse_det /= test_iter
+        total_elapse_lmk /= test_iter
+        total_elapse_pp /= test_iter
+        time_stamp_val(func_name='Forward : Face Detector', elapse=total_elapse)
         if args.unit_test == 3:
-            test_count = 0
-            div = args.unit_num
-        else:
-            test_count = args.unit_num - 1
-            div = 1
+            time_stamp_val(func_name='Forward : Face Detector DET', elapse=total_elapse_det)
+            time_stamp_val(func_name='Forward : Face Detector LMK', elapse=total_elapse_lmk)
+            time_stamp_val(func_name='Forward : Face Detector PP', elapse=total_elapse_pp)
 
-        while test_count < args.unit_num:
+    
+
+    # unit test 4 : e4e inversion
+    if args.unit_test >= 4:
+        total_elapse = 0
+        if args.unit_test == 4:
+            test_iter = args.unit_num 
+        else:
+            test_iter = 1
+
+        for _ in tqdm(range(test_iter)):
             start_inversion = time.time()
 
             my_w = e4e_projection(
@@ -182,32 +208,32 @@ def unit_test(args):
                                 save_inverted=False,
                                 device=device).unsqueeze(0)
             elapse = time.time() - start_inversion
-            
             total_elapse += elapse
-            test_count += 1
+        total_elapse /= test_iter
+        time_stamp_val(func_name='Forward : E4E Inversion', elapse=total_elapse)
 
-        time_stamp_val(func_name='E4E Inversion', elapse=total_elapse)
 
-
-    # unit test 4 : generator forward
-    if args.unit_test == 4:
+    # unit test 5 : generator forward
+    if args.unit_test == 5:
         total_elapse = 0
+        test_count = 0
+        test_iter = args.unit_num
         while test_count < args.unit_num:
             start_toonify = time.time()
-
             my_toonify = generator(my_w, input_is_latent=True)
             elapse = time.time() - start_toonify
             total_elapse += elapse
             test_count += 1
-
-        time_stamp_val(func_name='E4E Inversion', elapse=total_elapse)
+        total_elapse /= test_iter
+        time_stamp_val(func_name='Forward : StyleGAN', elapse=total_elapse)
 
         # save result
-        transform = transforms.ToPILImage()
-        my_toonify = utils.make_grid(my_toonify, normalize=True, range=(-1, 1)).squeeze(0)
-        my_toonify = transform(my_toonify)
-        output_path = os.path.join(args.output_dir, args.col + f'_{args.style}_{args.seed}.png')
-        my_toonify.save(output_path)
+        # transform = transforms.ToPILImage()
+        # my_toonify = utils.make_grid(my_toonify, normalize=True, range=(-1, 1)).squeeze(0)
+        # my_toonify = transform(my_toonify)
+        # os.makedirs(os.path.join(args.output_dir, args.col), exist_ok=True)
+        # output_path = os.path.join(args.output_dir, args.col, f'_{args.style}_{args.seed}.png')
+        # my_toonify.save(output_path)
 
     print("-------------------- FININSH --------------------")
 

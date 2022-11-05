@@ -6,7 +6,7 @@ from torch import nn
 from e4e.models.encoders import psp_encoders
 from e4e.models.stylegan2.model import Generator
 from e4e.configs.paths_config import model_paths
-
+import time
 
 def get_keys(d, name):
     if 'state_dict' in d:
@@ -58,7 +58,10 @@ class pSp(nn.Module):
         if input_code:
             codes = x
         else:
+            start_psp_encoder = time.time()
             codes = self.encoder(x)
+            print("pSp encoder : ", time.time() - start_psp_encoder)
+
             # normalize with respect to the center of an average face
             if self.opts.start_from_latent_avg:
                 if codes.ndim == 2:
@@ -77,10 +80,12 @@ class pSp(nn.Module):
                     codes[:, i] = 0
 
         input_is_latent = not input_code
+        start = time.time()
         images, result_latent = self.decoder([codes],
                                              input_is_latent=input_is_latent,
                                              randomize_noise=randomize_noise,
                                              return_latents=return_latents)
+        print("pSp decoder : ", round(time.time() - start, 5))
 
         if resize:
             images = self.face_pool(images)
