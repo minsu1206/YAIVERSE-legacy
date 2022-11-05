@@ -1,0 +1,6 @@
+Using CPU
+
+Fusing layers... Model Summary: 140 layers, 7.24652e+06 parameters, 6.61683e+06 gradients
+image 1/1 C:\Users\chanmi\Downloads\yolov5_anime-master\path\images\gongjooyoung_1.png: 576x640 1 items, Done. (1.215s)
+avg running time :  1.9737765789031982
+avg running time_1 :  1.3340036869049072
