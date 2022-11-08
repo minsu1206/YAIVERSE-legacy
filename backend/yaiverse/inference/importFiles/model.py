@@ -539,7 +539,7 @@ class Generator(nn.Module):
             latent = styles[0].unsqueeze(1).repeat(1, self.n_latent, 1)
         else:
             latent = styles
-
+        print(noise)
         out = self.input(latent)
         out = self.conv1(out, latent[:, 0], noise=noise[0])
 
