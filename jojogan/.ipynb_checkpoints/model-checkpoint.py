@@ -525,7 +525,7 @@ class Generator(nn.Module):
                 ]
 
         if not input_is_latent:
-            styles = [self.style(s) for s in styles]      # z to w
+            styles = [self.style(s) for s in styles]
 
             if truncation < 1:
                 style_t = []
@@ -534,13 +534,11 @@ class Generator(nn.Module):
                     style_t.append(
                         truncation_latent + truncation * (style - truncation_latent)
                     )
-            
-                styles = style_t    # w to w+
 
-            latent = styles[0].unsqueeze(1).repeat(1, self.n_latent, 1)     # w+
-
+                styles = style_t
+            latent = styles[0].unsqueeze(1).repeat(1, self.n_latent, 1)
         else:
-            latent = styles     # w+ from e4e_projection
+            latent = styles
 
         out = self.input(latent)
         out = self.conv1(out, latent[:, 0], noise=noise[0])
@@ -560,6 +558,7 @@ class Generator(nn.Module):
         image = skip
 
         return image
+
 
 class ConvLayer(nn.Sequential):
     def __init__(
@@ -635,7 +634,7 @@ class Discriminator(nn.Module):
             4: 512,
             8: 512,
             16: 512,
-            32: 512, 
+            32: 512,
             64: 256 * channel_multiplier,
             128: 128 * channel_multiplier,
             256: 64 * channel_multiplier,

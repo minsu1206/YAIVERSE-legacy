@@ -307,6 +307,90 @@ class ModulatedConv2d(nn.Module):
 
         return out
 
+    def get_style(self, w):
+        batch = w.shape[0]
+        style = self.modulation(w)
+        style = style.view(batch, -1)   # (-1)
+        return style
+
+    def forward_with_s(self, input, style):
+        batch, in_channel, height, width = input.shape
+        
+        if not self.fused:
+            weight = self.scale * self.weight.squeeze(0)
+            # style = self.modulation(style)
+
+            if self.demodulate:
+                w = weight.unsqueeze(0) * style.view(batch, 1, in_channel, 1, 1)
+                dcoefs = (w.square().sum((2, 3, 4)) + 1e-8).rsqrt()
+
+            input = input * style.reshape(batch, in_channel, 1, 1)
+
+            if self.upsample:
+                weight = weight.transpose(0, 1)
+                out = conv2d_gradfix.conv_transpose2d(
+                    input, weight, padding=0, stride=2
+                )
+                out = self.blur(out)
+
+            elif self.downsample:
+                input = self.blur(input)
+                out = conv2d_gradfix.conv2d(input, weight, padding=0, stride=2)
+
+            else:
+                out = conv2d_gradfix.conv2d(input, weight, padding=self.padding)
+
+            if self.demodulate:
+                out = out * dcoefs.view(batch, -1, 1, 1)
+
+            return out
+
+        # style = self.modulation(style).view(batch, 1, in_channel, 1, 1)
+        style = style.view(batch, 1, in_channel, 1, 1)
+        weight = self.scale * self.weight * style
+
+        if self.demodulate:
+            demod = torch.rsqrt(weight.pow(2).sum([2, 3, 4]) + 1e-8)
+            weight = weight * demod.view(batch, self.out_channel, 1, 1, 1)
+
+        weight = weight.view(
+            batch * self.out_channel, in_channel, self.kernel_size, self.kernel_size
+        )
+
+        if self.upsample:
+            input = input.view(1, batch * in_channel, height, width)
+            weight = weight.view(
+                batch, self.out_channel, in_channel, self.kernel_size, self.kernel_size
+            )
+            weight = weight.transpose(1, 2).reshape(
+                batch * in_channel, self.out_channel, self.kernel_size, self.kernel_size
+            )
+            out = conv2d_gradfix.conv_transpose2d(
+                input, weight, padding=0, stride=2, groups=batch
+            )
+            _, _, height, width = out.shape
+            out = out.view(batch, self.out_channel, height, width)
+            out = self.blur(out)
+
+        elif self.downsample:
+            input = self.blur(input)
+            _, _, height, width = input.shape
+            input = input.view(1, batch * in_channel, height, width)
+            out = conv2d_gradfix.conv2d(
+                input, weight, padding=0, stride=2, groups=batch
+            )
+            _, _, height, width = out.shape
+            out = out.view(batch, self.out_channel, height, width)
+
+        else:
+            input = input.view(1, batch * in_channel, height, width)
+            out = conv2d_gradfix.conv2d(
+                input, weight, padding=self.padding, groups=batch
+            )
+            _, _, height, width = out.shape
+            out = out.view(batch, self.out_channel, height, width)
+
+        return out
 
 class NoiseInjection(nn.Module):
     def __init__(self):
@@ -371,6 +455,16 @@ class StyledConv(nn.Module):
 
         return out
 
+    def get_style(self, style):
+        return self.conv.get_style(style)
+
+    def forward_with_s(self, input, style, noise=None):
+        out = self.conv.forward_with_s(input, style)
+        out = self.noise(out, noise=noise)
+        # out = out + self.bias
+        out = self.activate(out)
+
+        return out
 
 class ToRGB(nn.Module):
     def __init__(self, in_channel, style_dim, upsample=True, blur_kernel=[1, 3, 3, 1]):
@@ -384,6 +478,20 @@ class ToRGB(nn.Module):
 
     def forward(self, input, style, skip=None):
         out = self.conv(input, style)
+        out = out + self.bias
+
+        if skip is not None:
+            skip = self.upsample(skip)
+
+            out = out + skip
+
+        return out
+
+    def get_style(self, style):
+        return self.conv.get_style(style)
+
+    def forward_with_s(self, input, style, skip=None):
+        out = self.conv.forward_with_s(input, style)
         out = out + self.bias
 
         if skip is not None:
@@ -560,6 +668,63 @@ class Generator(nn.Module):
         image = skip
 
         return image
+
+    def get_s_space(self, style):
+        # Ref) CVPR2021: StyleSpace Analysis: Disentangled Controls for StyleGAN Image Generation
+        # input (style) : w+ space / (B, 18, d_latent)
+        # output (s_space) : s space / (B, 26, d_latent)
+        s_space = []
+
+        s_space.append(self.conv1.get_style(style[:, 0, :]))
+        s_space.append(self.to_rgb1.get_style(style[:, 1, :]))
+
+        i = 2
+        for conv1, conv2, to_rgb in zip(self.convs[::2], self.convs[1::2], self.to_rgbs):
+            s_space.append(conv1.get_style(style[:, i, :]))
+            s_space.append(conv2.get_style(style[:, i + 1, :]))
+            s_space.append(to_rgb.get_style(style[:, i + 1, :]))
+            i += 2
+
+        return s_space
+
+    def forward_with_s(
+                    self, 
+                    s_space,
+                    return_latents=False,
+                    inject_index=None,
+                    truncation=1,
+                    truncation_latent=None,
+                    # input_is_latent=False,
+                    noise=None,
+                    randomize_noise=True):
+
+        if noise is None:
+            if randomize_noise:
+                noise = [None] * self.num_layers
+            else:
+                noise = [
+                    getattr(self.noises, f"noise_{i}") for i in range(self.num_layers)
+                ]
+
+        # input_is_latent >> pass
+
+        out = self.input(s_space[0])    # ConstantInput : batch 만 맞으면 뭘 넣어도 괜찮음
+        out = self.conv1.forward_with_s(out, s_space[0], noise=noise[0])
+        skip = self.to_rgb1.forward_with_s(out, s_space[1])
+
+        i = 2
+        for conv1, conv2, noise1, noise2, to_rgb in zip(
+            self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
+        ):
+            out = conv1.forward_with_s(out, s_space[i], noise=noise1)
+            out = conv2.forward_with_s(out, s_space[i + 1], noise=noise2)
+            skip = to_rgb.forward_with_s(out, s_space[i + 2], skip)
+
+            i += 3
+
+        image = skip
+        return image
+
 
 class ConvLayer(nn.Sequential):
     def __init__(

@@ -229,19 +229,18 @@ def unit_test(args):
 
     # unit test 5 : generator forward
     if args.unit_test == 5:
-
         total_elapse = 0
         test_count = 0
+        test_iter = args.unit_num
         while test_count < args.unit_num:
             start_toonify = time.time()
             my_toonify = generator(my_w, input_is_latent=True)
             elapse = time.time() - start_toonify
             total_elapse += elapse
             test_count += 1
-            if test_count and test_count % 10 == 0:
-                print(f"Forward : StyleGAN ... {test_count}")
         total_elapse /= test_iter
         time_stamp_val(func_name='Forward : StyleGAN', elapse=total_elapse)
+
         # save result
         # transform = transforms.ToPILImage()
         # my_toonify = utils.make_grid(my_toonify, normalize=True, range=(-1, 1)).squeeze(0)
@@ -259,7 +258,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_dir', type=str, required=True)
     # parser.add_argument('--output_dir', type=str, required=True)
-    parser.add_argument('--unit_test', type=int, default=0)             # 0 ~ 5
+    parser.add_argument('--unit_test', type=int, default=0)
     parser.add_argument('--unit_num', type=int, default=50)
     parser.add_argument('--col', type=str, required=True)
     parser.add_argument('--style', type=str, required=True)

@@ -9,16 +9,11 @@ import os
 from PIL import Image
 from util_mp import align_face
 
-os.getcwd()
-file_path = os.getcwd()
-
-img_name = 'img9.png'
-img_dir = file_path + '\\'+ img_name
-img = cv2.imread(img_dir) #Image.open(img_dir)
 
 set_size = 480
 DESIRED_HEIGHT = set_size
 DESIRED_WIDTH = set_size
+
 def resize_and_show(image):
   h, w = image.shape[:2]
   img1 = cv2.resize(image, (set_size, set_size))
@@ -26,7 +21,7 @@ def resize_and_show(image):
   cv2.waitKey(0)
   cv2.destroyAllWindows()
   return img1
-img = resize_and_show(img)
+
 
 def face_detection(img):
     mp_face_detection = mp.solutions.face_detection
@@ -59,19 +54,28 @@ def face_detection(img):
     
     return face_lmk, annotated_image, bbox_lst
     
-### face detection
-face_lmk, img_detect, box_list = face_detection(img)
-cv2.imshow('img_detect', img_detect)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    os.getcwd()
+    file_path = os.getcwd()
 
-### use util_mp
-img_aligned = align_face(img_dir, face_lmk, set_size, box_list)
-img_aligned = cv2.cvtColor(np.array(img_aligned), cv2.COLOR_RGB2BGR)
-output_dir = file_path + '\\' + "output_mp"
-os.makedirs(output_dir, exist_ok=True)
-cv2.imwrite(output_dir + '\\' + 'rst_' + img_name, img_aligned)
-cv2.imshow('img_aligned', img_aligned)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+    img_name = 'img9.png'
+    img_dir = file_path + '\\'+ img_name
+    img = cv2.imread(img_dir) #Image.open(img_dir)
+    img = resize_and_show(img)
+    
+    ### face detection
+    face_lmk, img_detect, box_list = face_detection(img)
+    cv2.imshow('img_detect', img_detect)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    ### use util_mp
+    img_aligned = align_face(img_dir, face_lmk, set_size, box_list)
+    img_aligned = cv2.cvtColor(np.array(img_aligned), cv2.COLOR_RGB2BGR)
+    output_dir = file_path + '\\' + "output_mp"
+    os.makedirs(output_dir, exist_ok=True)
+    cv2.imwrite(output_dir + '\\' + 'rst_' + img_name, img_aligned)
+    cv2.imshow('img_aligned', img_aligned)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 

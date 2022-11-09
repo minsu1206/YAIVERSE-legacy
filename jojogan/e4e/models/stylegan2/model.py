@@ -11,6 +11,7 @@ else:
     from op.fused_act_cpu import FusedLeakyReLU, fused_leaky_relu
     from op.upfirdn2d_cpu import upfirdn2d
 
+import time
 
 class PixelNorm(nn.Module):
     def __init__(self):
@@ -522,23 +523,32 @@ class Generator(nn.Module):
 
             latent = torch.cat([latent, latent2], 1)
 
+        # times = {"mapping":[], "layers":[]}
+        # start = time.time()
         out = self.input(latent)
-        out = self.conv1(out, latent[:, 0], noise=noise[0])
+        # times["mapping"].append(round(time.time() - start, 5))
 
+        # start = time.time()
+        out = self.conv1(out, latent[:, 0], noise=noise[0])
         skip = self.to_rgb1(out, latent[:, 1])
+        # times["layers"].append(round(time.time() - start, 5))
 
         i = 1
         for conv1, conv2, noise1, noise2, to_rgb in zip(
                 self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):
+            start = time.time()
             out = conv1(out, latent[:, i], noise=noise1)
             out = conv2(out, latent[:, i + 1], noise=noise2)
             skip = to_rgb(out, latent[:, i + 2], skip)
 
             i += 2
 
+            # times["layers"].append(round(time.time() - start, 5))
+
         image = skip
 
+        # print("StyleGAN2 times : ", times)
         if return_latents:
             return image, latent
         elif return_features:

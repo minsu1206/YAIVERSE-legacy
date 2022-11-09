@@ -8,6 +8,7 @@ from torch.nn import Conv2d, BatchNorm2d, PReLU, Sequential, Module
 from e4e.models.encoders.helpers import get_blocks, bottleneck_IR, bottleneck_IR_SE, _upsample_add
 from e4e.models.stylegan2.model import EqualLinear
 
+import time
 
 class ProgressiveStage(Enum):
     WTraining = 0
@@ -173,8 +174,10 @@ class Encoder4Editing(Module):
     def forward(self, x):
         x = self.input_layer(x)
 
+        # times = {"modulelist":[], "stage":[]}
         modulelist = list(self.body._modules.values())
         for i, l in enumerate(modulelist):
+            # start = time.time()
             x = l(x)
             if i == 6:
                 c1 = x
@@ -182,6 +185,7 @@ class Encoder4Editing(Module):
                 c2 = x
             elif i == 23:
                 c3 = x
+            # times["modulelist"].append(round(time.time() - start, 5))
 
         # Infer main W and duplicate it
         w0 = self.styles[0](c3)
@@ -189,6 +193,7 @@ class Encoder4Editing(Module):
         stage = self.progressive_stage.value
         features = c3
         for i in range(1, min(stage + 1, self.style_count)):  # Infer additional deltas
+            # start = time.time()
             if i == self.coarse_ind:
                 p2 = _upsample_add(c3, self.latlayer1(c2))  # FPN's middle features
                 features = p2
@@ -197,4 +202,7 @@ class Encoder4Editing(Module):
                 features = p1
             delta_i = self.styles[i](features)
             w[:, i] += delta_i
+            # times["stage"].append(round(time.time() - start, 5))
+
+        # print("pSp encoder times : ", times)
         return w
