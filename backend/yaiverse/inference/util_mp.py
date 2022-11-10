@@ -38,6 +38,7 @@ def align_face_mp(filepath, lm, set_size, box_list, output_size=1024, transform_
     # read image
     img = Image.open(filepath)
     img = img.resize((set_size, set_size), Image.ANTIALIAS)
+    print("img.size in align_face_mp", img.size)
 
     transform_size = output_size
     enable_padding = True
