@@ -36,8 +36,9 @@ def align_face_mp(filepath, lm, set_size, box_list, output_size=1024, transform_
     qsize = np.hypot(*x) * 2
     
     # read image
-    img = Image.open(filepath)
-    img = img.resize((set_size, set_size), Image.ANTIALIAS)
+    img = cv2.imread(filepath)
+    img = square_padding(img)
+    img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB)).resize((set_size, set_size), Image.ANTIALIAS)
     print("img.size in align_face_mp", img.size)
 
     transform_size = output_size
@@ -95,3 +96,11 @@ def align_face_mp(filepath, lm, set_size, box_list, output_size=1024, transform_
 
     
     return img
+
+
+def square_padding(image):
+    h, w = image.shape[:2]
+    maxhw = np.max([h, w])
+    pad_h = int((maxhw - h) / 2)
+    pad_v = int((maxhw - w) / 2)
+    return cv2.copyMakeBorder(image, pad_h, pad_h, pad_v, pad_v, cv2.BORDER_CONSTANT)

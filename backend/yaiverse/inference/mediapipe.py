@@ -6,14 +6,15 @@ import numpy as np
 import mediapipe as mp
 import os
 from PIL import Image
-from yaiverse.inference.util_mp import align_face_mp
+from yaiverse.inference.util_mp import align_face_mp, square_padding
 
-
+## padding
 def face_detection(img_dir:str):
+    
+    
     img = cv2.imread(img_dir)
+    img = square_padding(img)
     set_size = 480
-    y_ratio = img.shape[0]/set_size
-    x_ratio = img.shape[1]/set_size
     img = cv2.resize(img, (set_size, set_size))
     mp_face_detection = mp.solutions.face_detection
     mp_drawing = mp.solutions.drawing_utils
@@ -30,20 +31,20 @@ def face_detection(img_dir:str):
             lmk_name = mp_face_detection.FaceKeyPoint._member_names_
             for i in range(len(lmk_name)):
                 # bbox length..?
-                lmk_x = p_key_point(detection, i).x * img.shape[0] * x_ratio
-                lmk_y = p_key_point(detection, i).y * img.shape[1] * y_ratio
+                lmk_x = p_key_point(detection, i).x * img.shape[0]
+                lmk_y = p_key_point(detection, i).y * img.shape[1]
                 face_lmk.append(np.array([int(lmk_x), int(lmk_y)])) ## i : index of lmk_name
         # resize_and_show(annotated_image)
     
         bbox_lst = []
         bbox = face_detection.process(img)
         bbox = bbox.detections[0].location_data.relative_bounding_box
-        bbox_lst.append(int(bbox.xmin * set_size * x_ratio)) # box_x
-        bbox_lst.append(int(bbox.ymin * set_size * y_ratio)) # box_y
-        bbox_lst.append(int(bbox.width * set_size* x_ratio)) # box_w
-        bbox_lst.append(int(bbox.height * set_size * y_ratio)) # box_h
+        bbox_lst.append(int(bbox.xmin * set_size )) # box_x
+        bbox_lst.append(int(bbox.ymin * set_size )) # box_y
+        bbox_lst.append(int(bbox.width * set_size)) # box_w
+        bbox_lst.append(int(bbox.height * set_size )) # box_h
         print(bbox_lst)
         
-    cv2.imwrite(img_dir.replace("image.jpg", "bbox.jpg"), cv2.resize(annotated_image, (int(x_ratio*set_size), int(y_ratio*set_size))))
+    cv2.imwrite(img_dir.replace("image.jpg", "bbox.jpg"), annotated_image)
     
     return align_face_mp(img_dir, face_lmk, set_size, bbox_lst)

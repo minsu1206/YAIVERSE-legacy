@@ -1,11 +1,9 @@
 import torch
 from torchvision import transforms, utils
-from backup.util import *
 import os
 from yaiverse.inference.importFiles.model import *
 from yaiverse.inference.importFiles.e4e_projection import projection as e4e_projection
 from yaiverse.inference.importFiles.psp import pSp
-from backup.util import *
 from yaiverse.inference.mediapipe import *
 import argparse
 
@@ -26,13 +24,13 @@ class ConvertModel:
         self.inversion_net = pSp(opts, self.device).eval().to(self.device)
         
         # Inference dummy data
-        self.generate_face("dummy", "sketch_multi")
+        self.generate_face("dummy", "sketch_multi", True)
         
         
     """
     Inference input image with style and save image
     """
-    def generate_face(self, col:str, style:str) -> None:
+    def generate_face(self, col:str, style:str, preserve:bool) -> None:
         stylegan_model_path = self.dir + '/yaiverse/inference/models/style_model/{}.pt'.format(style)
         ckpt = torch.load(stylegan_model_path, map_location=self.device)
 
@@ -46,7 +44,10 @@ class ConvertModel:
         transform = transforms.ToPILImage()
         my_toonify = utils.make_grid(my_toonify, normalize=True, range=(-1, 1)).squeeze(0)
         my_toonify = transform(my_toonify)
-        output_path = os.path.join(self.dir + "data", col + '/result.jpg')
+        if preserve:
+            output_path = os.path.join(self.dir + "data", col + '/preserved_result.jpg')
+        else:
+            output_path = os.path.join(self.dir + "data", col + '/result.jpg')
         my_toonify.save(output_path)
         
         
@@ -56,6 +57,9 @@ class ConvertModel:
     """
     def align_inversion(self, img_path:str):
         aligned_face = face_detection(img_path)
+        
+        aligned_face.convert('RGB').save(img_path.replace("image.jpg", "aligned.jpg"))
+        
         return e4e_projection(
                             aligned_face,
                             name=img_path.replace('.jpg', '_inversion.pt'),
